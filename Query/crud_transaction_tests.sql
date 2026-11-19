@@ -16,7 +16,7 @@ DELETE FROM HasRate WHERE RatePlan_ID >= 9000;
 DELETE FROM RatePlan WHERE RatePlan_ID >= 9000;
 DELETE FROM Services WHERE ServiceID >= 9000;
 DELETE FROM RoomType WHERE TypeID >= 9000;
-DELETE FROM Position WHERE Role_ID >= 9000;
+DELETE FROM `Position` WHERE Role_ID >= 9000;
 DELETE FROM Hotels WHERE Hotel_ID >= 9000;
 
 
@@ -183,9 +183,9 @@ INSERT INTO Hotels (Hotel_ID, Name, Address)
 VALUES (9001, 'Test Hotel', '1 Test Street, Ho Chi Minh City');
 UPDATE Hotels SET Address = '2 Test Street, Ho Chi Minh City' WHERE Hotel_ID = 9001;
 
-INSERT INTO Position (Role_ID, DepartmentFocus, Level, BaseRole)
+INSERT INTO `Position` (Role_ID, DepartmentFocus, Level, BaseRole)
 VALUES (9001, 'Testing', 'Junior', 'Tester');
-UPDATE Position SET Level = 'Senior' WHERE Role_ID = 9001;
+UPDATE `Position` SET Level = 'Senior' WHERE Role_ID = 9001;
 
 INSERT INTO RoomType (TypeID, Name, BasePrice, Capacity)
 VALUES (9001, 'Test Room', 500000, 2);
@@ -204,6 +204,6 @@ UPDATE Services SET ServiceType = 'Test Service Updated' WHERE ServiceID = 9001;
 DELETE FROM HasRate WHERE TypeID = 9001 AND RatePlan_ID = 9001;
 DELETE FROM RatePlan WHERE RatePlan_ID = 9001;
 DELETE FROM RoomType WHERE TypeID = 9001;
-DELETE FROM Position WHERE Role_ID = 9001;
+DELETE FROM `Position` WHERE Role_ID = 9001;
 DELETE FROM Services WHERE ServiceID = 9001;
 DELETE FROM Hotels WHERE Hotel_ID = 9001;
