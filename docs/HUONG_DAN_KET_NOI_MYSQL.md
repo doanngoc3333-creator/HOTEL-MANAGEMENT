@@ -266,6 +266,45 @@ sức chứa), bạn sẽ có một guest "rác" trong DB. `rollback()` xoá s�
 
 ---
 
+### 2.4. Lỗi `ClassNotFoundException: com.mysql.cj.jdbc.Driver` khi bấm Run
+
+Đây là lỗi phổ biến nhất: **compile được nhưng lúc chạy thì không thấy file `.jar`**.
+Nguyên nhân là IntelliJ/Eclipse có hai đường classpath khác nhau — compilation classpath và
+**runtime classpath**.
+
+**Cách 1 — dùng script (nhanh nhất, không cần cấu hình IDE):**
+
+```bash
+./run.sh test      # kiểm tra kết nối MySQL
+./run.sh           # mở giao diện
+```
+
+```bat
+run.bat test
+run.bat
+```
+
+Script tự tìm file `mysql-connector-*.jar` trong `src/`, `lib/`, `libs/`, tự biên dịch khi
+cần, và đặt đúng classpath.
+
+**Cách 2 — sửa cấu hình IDE:**
+
+1. `File → Project Structure…` → **Libraries** → **+** → **Java** → chọn
+   `src/mysql-connector-j-26.10.0.jar` → OK
+2. **Modules** → module → **Dependencies** → đảm bảo library ở scope **Compile**
+   (không phải *Provided*)
+3. `Run → Edit Configurations…` → cấu hình của `App` → mục **Use classpath of module** phải
+   trỏ đúng module vừa thêm library → **Apply**
+4. Nếu vẫn lỗi: `Build → Rebuild Project`, rồi xoá cấu hình Run cũ và tạo lại
+
+**Cách 3 — tự nạp jar (đã tích hợp sẵn trong code):**
+
+`DatabaseConnection` đã có logic tự tìm file `mysql-connector-*.jar` trong project và nạp
+lúc chạy. Nếu vẫn báo lỗi, chắc chắn file `.jar` **không nằm** trong các thư mục được quét —
+thông báo lỗi sẽ liệt kê chính xác các đường dẫn đã tìm, hãy đọc danh sách đó.
+
+---
+
 ## 6. Những gì đã được sửa để code khớp với database thật
 
 Code giao diện ban đầu query vào một schema **không tồn tại** trong file `.sql`
@@ -296,7 +335,7 @@ Ngoài ra:
 | Lỗi | Nguyên nhân | Cách sửa |
 |-----|-------------|----------|
 | `No suitable driver found for jdbc:mysql://...` | driver chưa có trên classpath | thêm `mysql-connector-j-26.10.0.jar` (mục 2) |
-| `Cannot find MySQL JDBC Driver (com.mysql.cj.jdbc.Driver)` | như trên, do `DatabaseConnection` báo | như trên |
+| `Cannot find MySQL JDBC Driver (com.mysql.cj.jdbc.Driver)` | driver chưa có trên classpath **lúc chạy** (compile thì được, nhưng Run không có jar) | xem mục 2.4 bên dưới |
 | `ClassNotFoundException: com.mysql.cj.jdbc.Driver` | chạy sai classpath, thiếu `.jar` | kiểm tra lệnh `java -cp ...` |
 | `Access denied for user 'root'@'localhost'` | sai mật khẩu | sửa `DEFAULT_PASSWORD` hoặc `-Ddb.password=` |
 | `Unknown database 'Hotel_Management_Group3'` | chưa nạp file SQL | chạy lại mục 1.2 |

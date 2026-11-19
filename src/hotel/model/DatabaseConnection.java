@@ -1,8 +1,20 @@
 package hotel.model;
 
+import java.io.File;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.sql.Connection;
+import java.sql.Driver;
 import java.sql.DriverManager;
+import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
+import java.util.logging.Logger;
 
 /**
  * Cầu nối duy nhất giữa ứng dụng Java và MySQL (qua JDBC).
@@ -15,8 +27,14 @@ import java.sql.SQLException;
  *   url      = jdbc:mysql://localhost:3306/Hotel_Management_Group3?...
  *   user     = root
  *   password = (rỗng)
+ *
+ * Về JDBC driver: nếu file mysql-connector-j-*.jar chưa nằm trên classpath, lớp này
+ * sẽ TỰ TÌM file .jar trong project và nạp nó lúc chạy. Nhờ vậy bấm Run trong IDE
+ * hoặc chạy `java -cp out ...` đều hoạt động mà không cần cấu hình thêm.
  */
 public final class DatabaseConnection {
+
+    private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
 
     private static final String DEFAULT_HOST = "localhost";
     private static final String DEFAULT_PORT = "3306";
@@ -33,16 +51,7 @@ public final class DatabaseConnection {
         USER = setting("db.user", "DB_USER", DEFAULT_USER);
         PASSWORD = setting("db.password", "DB_PASSWORD", DEFAULT_PASSWORD);
 
-        // Nạp driver một lần. JDK hiện đại tự dò driver qua ServiceLoader,
-        // nhưng gọi Class.forName() giúp báo lỗi rõ ràng khi thiếu file .jar.
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-        } catch (ClassNotFoundException e) {
-            throw new IllegalStateException(
-                    "Không tìm thấy MySQL JDBC Driver (com.mysql.cj.jdbc.Driver).\n"
-                            + "Hãy thêm src/mysql-connector-j-26.10.0.jar vào classpath / thư viện của project.\n"
-                            + "Xem hướng dẫn: docs/HUONG_DAN_KET_NOI_MYSQL.md", e);
-        }
+        ensureDriverLoaded();
     }
 
     private DatabaseConnection() {
@@ -66,6 +75,156 @@ public final class DatabaseConnection {
         return USER + "@" + URL.replaceAll("\\?.*$", "");
     }
 
+    // ------------------------------------------------------------------
+    // Nạp JDBC driver (có tự dò file .jar nếu thiếu trên classpath)
+    // ------------------------------------------------------------------
+
+    private static void ensureDriverLoaded() {
+        // 1) Thử cách bình thường: driver đã có trên classpath.
+        try {
+            Class.forName(DRIVER_CLASS);
+            return;
+        } catch (ClassNotFoundException ignored) {
+            // rơi xuống bước 2
+        }
+
+        // 2) Tự tìm file .jar trong project rồi nạp bằng URLClassLoader.
+        List<File> jars = findDriverJars();
+        for (File jar : jars) {
+            try {
+                URLClassLoader loader = new URLClassLoader(
+                        new URL[]{jar.toURI().toURL()},
+                        DatabaseConnection.class.getClassLoader());
+                Class<?> driverClass = Class.forName(DRIVER_CLASS, true, loader);
+                Driver driver = (Driver) driverClass.getDeclaredConstructor().newInstance();
+                // DriverManager chỉ dùng driver do chính classloader của nó nạp,
+                // nên phải bọc lại và đăng ký thủ công.
+                DriverManager.registerDriver(new DriverShim(driver));
+                return;
+            } catch (Throwable ignored) {
+                // thử file .jar tiếp theo
+            }
+        }
+
+        // 3) Không tìm được -> báo lỗi kèm hướng dẫn cụ thể.
+        StringBuilder message = new StringBuilder()
+                .append("Không tìm thấy MySQL JDBC Driver (").append(DRIVER_CLASS).append(").\n\n")
+                .append("Đã tìm file .jar tại các vị trí sau nhưng không thấy:\n");
+        for (File dir : candidateDirectories()) {
+            message.append("  - ").append(dir.getAbsolutePath()).append('\n');
+        }
+        message.append("\nCách sửa:\n")
+                .append("  • Đặt file mysql-connector-j-*.jar vào thư mục src/ của project, hoặc\n")
+                .append("  • Thêm file .jar làm library trong IDE, hoặc\n")
+                .append("  • Chạy bằng script: ./run.sh  (Linux/macOS)  hoặc  run.bat  (Windows)\n")
+                .append("\nXem hướng dẫn: docs/HUONG_DAN_KET_NOI_MYSQL.md");
+        throw new IllegalStateException(message.toString());
+    }
+
+    /** Các thư mục sẽ được quét để tìm mysql-connector-j-*.jar. */
+    private static Set<File> candidateDirectories() {
+        Set<File> dirs = new LinkedHashSet<>();
+
+        // Thư mục làm việc hiện tại và các thư mục con thường dùng
+        File cwd = new File(System.getProperty("user.dir", "."));
+        dirs.add(cwd);
+        dirs.add(new File(cwd, "src"));
+        dirs.add(new File(cwd, "lib"));
+        dirs.add(new File(cwd, "libs"));
+        dirs.add(new File(cwd, "drivers"));
+
+        // Vị trí file .class đang chạy (ví dụ: .../out/hotel/model/ -> lùi 3 cấp)
+        try {
+            File codeSource = new File(
+                    DatabaseConnection.class.getProtectionDomain()
+                            .getCodeSource().getLocation().toURI());
+            File dir = codeSource.isDirectory() ? codeSource : codeSource.getParentFile();
+            for (int i = 0; i < 4 && dir != null; i++) {
+                dirs.add(dir);
+                dirs.add(new File(dir, "src"));
+                dirs.add(new File(dir, "lib"));
+                dirs.add(new File(dir, "libs"));
+                dir = dir.getParentFile();
+            }
+        } catch (Exception ignored) {
+            // bỏ qua, vẫn còn các thư mục ở trên
+        }
+
+        return dirs;
+    }
+
+    /** Tìm tất cả file .jar có tên chứa "mysql-connector". */
+    private static List<File> findDriverJars() {
+        List<File> found = new ArrayList<>();
+        for (File dir : candidateDirectories()) {
+            if (dir == null || !dir.isDirectory()) {
+                continue;
+            }
+            File[] files = dir.listFiles((d, name) -> {
+                String lower = name.toLowerCase();
+                return lower.endsWith(".jar") && lower.contains("mysql-connector");
+            });
+            if (files != null) {
+                for (File f : files) {
+                    if (f.isFile() && !found.contains(f)) {
+                        found.add(f);
+                    }
+                }
+            }
+        }
+        return found;
+    }
+
+    /**
+     * Bọc driver lại để DriverManager chấp nhận driver do classloader khác nạp.
+     */
+    private static final class DriverShim implements Driver {
+        private final Driver delegate;
+
+        DriverShim(Driver delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public Connection connect(String url, Properties info) throws SQLException {
+            return delegate.connect(url, info);
+        }
+
+        @Override
+        public boolean acceptsURL(String url) throws SQLException {
+            return delegate.acceptsURL(url);
+        }
+
+        @Override
+        public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws SQLException {
+            return delegate.getPropertyInfo(url, info);
+        }
+
+        @Override
+        public int getMajorVersion() {
+            return delegate.getMajorVersion();
+        }
+
+        @Override
+        public int getMinorVersion() {
+            return delegate.getMinorVersion();
+        }
+
+        @Override
+        public boolean jdbcCompliant() {
+            return delegate.jdbcCompliant();
+        }
+
+        @Override
+        public Logger getParentLogger() throws SQLFeatureNotSupportedException {
+            return delegate.getParentLogger();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Cấu hình
+    // ------------------------------------------------------------------
+
     private static String buildDefaultUrl() {
         return "jdbc:mysql://" + DEFAULT_HOST + ":" + DEFAULT_PORT + "/" + DEFAULT_DATABASE
                 + "?useSSL=false"
@@ -84,7 +243,7 @@ public final class DatabaseConnection {
 
     /**
      * Chạy riêng để kiểm tra kết nối:
-     *   java -cp "out;src/mysql-connector-j-26.10.0.jar" hotel.model.DatabaseConnection
+     *   java -cp "out:src/mysql-connector-j-26.10.0.jar" hotel.model.DatabaseConnection
      */
     public static void main(String[] args) {
         System.out.println("Đang kết nối tới: " + describe());
