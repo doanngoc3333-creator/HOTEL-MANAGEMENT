@@ -1388,6 +1388,14 @@ See the [Query folder](./Query/) for details.
 
 Hướng dẫn đầy đủ: **[docs/HUONG_DAN_KET_NOI_MYSQL.md](docs/HUONG_DAN_KET_NOI_MYSQL.md)**
 
+**Chưa cài JDK/MySQL?** Xem [docs/HUONG_DAN_CAI_DAT.md](docs/HUONG_DAN_CAI_DAT.md) trước.
+
+Chẩn đoán môi trường:
+
+```bash
+./run.sh doctor    # liệt kê java / javac / JDBC driver / MySQL server
+```
+
 Tóm tắt 4 bước:
 
 ```bash
