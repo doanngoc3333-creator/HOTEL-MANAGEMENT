@@ -375,7 +375,7 @@ SELECT
 FROM Staff e
 JOIN Hotels h
     ON e.Hotel_ID = h.Hotel_ID
-JOIN Position p
+JOIN `Position` p
     ON e.Role_ID = p.Role_ID
 LEFT JOIN Staff sup
     ON e.Supervisor_ID = sup.Staff_ID

@@ -12,7 +12,7 @@ CREATE TABLE Hotels (
     CONSTRAINT UQ_Hotels_Name UNIQUE (Name)
 ) ENGINE=InnoDB;
 
-CREATE TABLE Position (
+CREATE TABLE `Position` (
     Role_ID INT NOT NULL,
     DepartmentFocus VARCHAR(50) NOT NULL,
     Level ENUM('Junior','Senior','Supervisor','Manager') NOT NULL,
@@ -32,7 +32,7 @@ CREATE TABLE Staff (
         REFERENCES Hotels (Hotel_ID)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT FK_Staff_Position FOREIGN KEY (Role_ID)
-        REFERENCES Position (Role_ID)
+        REFERENCES `Position` (Role_ID)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT FK_Staff_Supervisor FOREIGN KEY (Supervisor_ID)
         REFERENCES Staff (Staff_ID)
@@ -323,7 +323,7 @@ INSERT INTO Hotels (Hotel_ID, Name, Address) VALUES
 (14, 'Hai Phong Harbour Hotel', '27 Dien Bien Phu, Ngo Quyen, Hai Phong'),
 (15, 'Phan Thiet Dunes Resort', '75 Nguyen Dinh Chieu, Mui Ne, Phan Thiet, Binh Thuan');
 
-INSERT INTO Position (Role_ID, DepartmentFocus, Level, BaseRole) VALUES
+INSERT INTO `Position` (Role_ID, DepartmentFocus, Level, BaseRole) VALUES
 (1, 'Management', 'Manager', 'General Manager'),
 (2, 'Front Office', 'Supervisor', 'Receptionist'),
 (3, 'Front Office', 'Senior', 'Receptionist'),
@@ -1367,7 +1367,7 @@ INSERT INTO Payment (PaymentID, PaidDate, Method, Amount, Invoice_ID) VALUES
 
 -- QUICK CHECK --
 SELECT 'Hotels' AS TableName, COUNT(*) AS NumRows FROM Hotels
-UNION ALL SELECT 'Position', COUNT(*) FROM Position
+UNION ALL SELECT 'Position', COUNT(*) FROM `Position`
 UNION ALL SELECT 'Staff', COUNT(*) FROM Staff
 UNION ALL SELECT 'RoomType', COUNT(*) FROM RoomType
 UNION ALL SELECT 'RatePlan', COUNT(*) FROM RatePlan

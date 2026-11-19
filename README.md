@@ -1381,3 +1381,31 @@ The `Query/` folder contains the SQL scripts and documentation for the Hotel Man
 See the [Query folder](./Query/) for details.
 
 **Note:** `01_schema.sql` is for testing only. Do not run it on the shared database without approval.
+
+---
+
+## Kết nối Java ↔ MySQL (JDBC)
+
+Hướng dẫn đầy đủ: **[docs/HUONG_DAN_KET_NOI_MYSQL.md](docs/HUONG_DAN_KET_NOI_MYSQL.md)**
+
+Tóm tắt 4 bước:
+
+```bash
+# 1. Nạp database (cần MySQL 8.0+)
+mysql -u root -p < Database/hotel_management_full.sql
+
+# 2. Sửa mật khẩu MySQL trong src/hotel/model/DatabaseConnection.java
+#    hoặc truyền lúc chạy: -Ddb.password=your_password
+
+# 3. Test kết nối
+javac -encoding UTF-8 -cp src/mysql-connector-j-26.10.0.jar -d out $(find src -name "*.java")
+java -cp "out:src/mysql-connector-j-26.10.0.jar" hotel.model.DatabaseConnection
+
+# 4. Chạy ứng dụng
+java -cp "out:src/mysql-connector-j-26.10.0.jar" hotel.model.App
+```
+
+Trên Windows, thay `:` trong classpath bằng `;`.
+
+**Lưu ý:** bảng `Position` phải viết là `` `Position` `` (dấu backtick) vì `POSITION` là
+từ khoá dành riêng của MySQL — file SQL trong repo đã sửa sẵn.
